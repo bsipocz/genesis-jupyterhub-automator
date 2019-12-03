@@ -99,6 +99,26 @@ check_do_prerequisites()
 	doctl compute domain records list "$DOMAIN" >/dev/null 2>&1 && msg check "  DO is managing $DOMAIN" || { errmsg "  error: domain not found. Please delegate '$DOMAIN' to DO's DNS service."; exit -1; }
 }
 
+check_aws_prerequisites()
+{
+	# see if we have eksctl
+	hash eksctl 2>/dev/null && msg check "  found eksctl" || { errmsg "  error: no eksctl on path. Install eksctl."; exit -1; }
+
+	hash aws 2>/dev/null && msg check "  found aws" || { errmsg "  error: no aws on path. Install AWS CLI tools."; exit -1; }
+	
+	# see if we are authenticated
+	aws sts get-caller-identity >/dev/null 2>&1 && msg check "  logged into AWS" || { errmsg "  error: issues authenticating to AWS..."; exit -1; }
+
+	# see if the domain has been properly set up
+	DOMAIN=$(echo "$HUB_FQDN" | cut -d . -f 2-)
+	output=$(aws route53 list-hosted-zones | jq --arg DOMAIN "${DOMAIN}." ' .HostedZones | .[] | select(.Name==$DOMAIN) ')
+	if [[ -n $output ]]; then
+	  msg check "  AWS is managing $DOMAIN"
+	else
+		{ errmsg "  error: domain not found. Please delegate '$DOMAIN' to AWS's Route 53 service."; exit -1; }
+	fi
+}
+
 check_prerequisites()
 {
 	[[ $NOCHECKS == 1 ]] && return
@@ -119,6 +139,7 @@ check_prerequisites()
 	hash certbot 2>/dev/null && msg check "  found certbot" || { errmsg "  error: no certbot on path. Install certbot tools."; exit -1; }
 
 	[[ $PROVIDER == do ]] && check_do_prerequisites
+	[[ $PROVIDER == aws ]] && check_aws_prerequisites
 
 	echo
 }
@@ -274,7 +295,23 @@ gen_config() {
 
 
 	# early validation
-	NODEPROPS=( $(doctl_size_list_json | jq -r '.[] | select(.slug == "'"$SIZE"'") | [.vcpus, .memory, .price_hourly] | @tsv ') )
+	if [ $PROVIDER == "do" ]; then
+	  NODEPROPS=( $(doctl_size_list_json | jq -r '.[] | select(.slug == "'"$SIZE"'") | [.vcpus, .memory, .price_hourly] | @tsv ') )
+	elif [ $PROVIDER == "aws" ]; then
+		REGION_DESCRIPTION=$(curl --silent https://raw.githubusercontent.com/boto/botocore/master/botocore/data/endpoints.json | jq --arg REGION "$REGION" '.partitions | .[0] | .regions | to_entries[] | {'key': .key, description: .value.description } | select(.key==$REGION) | .description')
+		REGION_DESCRIPTION="${REGION_DESCRIPTION%\"}"
+		REGION_DESCRIPTION="${REGION_DESCRIPTION#\"}"
+		msg check "  found description for $REGION, description is $REGION_DESCRIPTION"
+		filter='[ { "Type": "TERM_MATCH", "Field": "ServiceCode", "Value": "AmazonEC2" }, { "Type": "TERM_MATCH", "Field": "tenancy", "Value": "shared" }, { "Field" : "capacitystatus", "Value" : "Used", "Type" : "TERM_MATCH" }, { "Field" : "operatingSystem", "Value" : "Linux", "Type" : "TERM_MATCH" }, { "Field" : "instanceType", "Value" : "$SIZE", "Type" : "TERM_MATCH" }, { "Field" : "location", "Value" : "$REGIONDESCRIPTION", "Type" : "TERM_MATCH" }, { "Field" : "preInstalledSw", "Value" : "NA", "Type" : "TERM_MATCH" } ]'
+		# aws pricing api is a pain...why doesn't the following work?
+		# below command needs to be run
+		# aws pricing --region us-east-1 get-products --filter $filter  --max-results 1 --service-code AmazonEC2 | jq ' .PriceList | .[] | fromjson'
+		NODEPROPS=("N/A" "N/A" "N/A")
+		exit 1
+	else
+	  echo "Provider $PROVIDER not supported in gen_config()"
+		exit -1
+	fi
 	NODE_CPU=${NODEPROPS[0]}
 	NODE_MEMORY=${NODEPROPS[1]}
 	NODE_PRICE=${NODEPROPS[2]}
