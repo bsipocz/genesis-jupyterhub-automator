@@ -8,11 +8,11 @@ PROVIDER=aws				# Cloud hosting provider
 USERNAME=                   # The username associated with the current AWS profile (REQUIRED)
 
 # Kubernetes cluster definitions
-CLUSTER_NAME=genesis			# Kubernetes cluster name
-K8S_VERSION=1.15.5-do.1			# Kubernetes engine version
+CLUSTER_NAME=genesis-test			# Kubernetes cluster name
+K8S_VERSION=1.14			# Kubernetes engine version
 SIZE=m5.xlarge			# Node type to use for the k8s cluster
 NODES=3					# Number of nodes in the k8s cluster
-NODE_POOL_NAME=\$SIZE			# Name of the k8s node pool
+NODE_POOL_NAME=\${SIZE//./-}			# Name of the k8s node pool, replace '.' in name with '-' for safety with AWS nodegroups
 REGION=us-west-2				# AWS region where to create the k8s cluster
 CONTEXT=\$USERNAME@\$CLUSTER_NAME.\$REGION.eksctl.io	# Name of the k8s context for the cluster
 DASHBOARD_VERSION=v2.0.0-beta6		# The version of Kubernetes Dashboard to install
