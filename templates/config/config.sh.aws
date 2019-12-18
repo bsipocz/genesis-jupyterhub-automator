@@ -8,7 +8,7 @@ PROVIDER=aws				# Cloud hosting provider
 USERNAME=                   # The username associated with the current AWS profile (REQUIRED)
 
 # Kubernetes cluster definitions
-CLUSTER_NAME=genesis-test			# Kubernetes cluster name
+CLUSTER_NAME=astroml-test			# Kubernetes cluster name
 K8S_VERSION=1.14			# Kubernetes engine version
 SIZE=m5.xlarge			# Node type to use for the k8s cluster
 NODES=3					# Number of nodes in the k8s cluster

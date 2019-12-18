@@ -9,6 +9,7 @@ git clone https://github.com/astronomy-commons/genesis-client .managed-sources/g
 mkdir -p .ipython
 rm -f .ipython/genesis
 ln -s ../.managed-sources/genesis-client/genesis .ipython/genesis
+pip install numpy scipy matplotlib astropy astroML scikit-learn pymc3 tensorflow-gpu pandas
 
 ## downlaod genesis demo
-gitpuller https://github.com/astronomy-commons/tutorials master tutorials
+gitpuller https://github.com/astroML/astroML-workshop_AAS235 master astroML-workshop
